@@ -11,7 +11,6 @@ import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -25,7 +24,7 @@ public class MusicService extends Service {
     private MediaPlayer mMediaPlayer;
     private AudioManager mAudioManager;
     private AudioAttributes mPlaybackAttributes;
-    private AudioFocusRequest mFoucusRequest;
+    private AudioFocusRequest mFocusRequest;
     private BroadcastReceiver mNoisyReceiver;
     private MusicPlayerBinder mBinder;
     private AssetFileDescriptor mAssetFileDescriptor;
@@ -33,6 +32,7 @@ public class MusicService extends Service {
     private boolean mPlaybackDelayed = false;
     private boolean mResumeOnFocusGain = false;
     private Handler handler;
+    private IStateChangeCallBack mcallBack;
 
     @Override
     public void onCreate() {
@@ -46,7 +46,7 @@ public class MusicService extends Service {
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build();
         handler = new Handler();
-        mFoucusRequest = new AudioFocusRequest
+        mFocusRequest = new AudioFocusRequest
                 .Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(mPlaybackAttributes)
                 .setOnAudioFocusChangeListener(new MyFocusListener(),handler)
@@ -58,6 +58,10 @@ public class MusicService extends Service {
                 mBinder.pause();
             }
         };
+        
+        mMediaPlayer.setOnCompletionListener(mp -> {
+            mcallBack.onCompletion();
+        });
     }
 
     private class MusicPlayerBinder extends Binder implements IMusicBinder {
@@ -65,7 +69,7 @@ public class MusicService extends Service {
         @Override
         public void play() {
             if (mAssetFileDescriptor!=null && !mMediaPlayer.isPlaying()) {
-                mAudioManager.requestAudioFocus(mFoucusRequest);
+                mAudioManager.requestAudioFocus(mFocusRequest);
                 mMediaPlayer.start();
                 IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
                 registerReceiver(mNoisyReceiver, filter);
@@ -117,13 +121,29 @@ public class MusicService extends Service {
         public void seekTo(int pos) {
             mMediaPlayer.seekTo(pos);
         }
+
+        @Override
+        public int getCurrentPosition() {
+            return mMediaPlayer.getCurrentPosition();
+        }
+
+        @Override
+        public void setCallBack(IStateChangeCallBack callBack) {
+            mcallBack = callBack;
+        }
+
+        @Override
+        public boolean hasSong() {
+            return mAssetFileDescriptor!=null;
+        }
+
+
     }
 
     @Override
     public IBinder onBind(Intent intent) {
         return mBinder;
     }
-
 
     private class MyFocusListener implements AudioManager.OnAudioFocusChangeListener {
         @Override
@@ -136,6 +156,7 @@ public class MusicService extends Service {
                             mResumeOnFocusGain = false;
                         }
                         mMediaPlayer.start();
+                        mcallBack.onResume();
                     }
                     break;
                 case AudioManager.AUDIOFOCUS_LOSS:
@@ -144,6 +165,7 @@ public class MusicService extends Service {
                         mPlaybackDelayed = false;
                     }
                     mMediaPlayer.pause();
+                    mcallBack.onPause();
                     break;
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
@@ -152,11 +174,11 @@ public class MusicService extends Service {
                         mPlaybackDelayed = false;
                     }
                     mMediaPlayer.pause();
+                    mcallBack.onPause();
                     break;
             }
         }
     }
-
 
     @Override
     public void onDestroy() {

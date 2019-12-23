@@ -12,5 +12,8 @@ public interface IMusicBinder {
     void set(Song song);
     void setAndPlay(AssetFileDescriptor afd);
     void seekTo(int pos);
+    boolean hasSong();
     boolean isPlaying();
+    int getCurrentPosition();
+    void setCallBack(IStateChangeCallBack callBack);
 }

@@ -12,9 +12,13 @@ import android.content.ServiceConnection;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.View;
+import android.view.animation.Animation;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -22,7 +26,9 @@ import android.widget.TextView;
 import com.example.mymusic.Adapter.SongAdapter;
 import com.example.mymusic.Model.Song;
 import com.example.mymusic.Service.IMusicBinder;
+import com.example.mymusic.Service.IStateChangeCallBack;
 import com.example.mymusic.Service.MusicService;
+import com.example.mymusic.Utils.Utils;
 
 import java.util.ArrayList;
 
@@ -38,11 +44,23 @@ public class MainActivity extends AppCompatActivity {
     private SongAdapter mAdapter;
     private ArrayList<Song> songs;
     private IMusicBinder myService;
+    private boolean isDragging;
+    private final Handler mHandler = new Handler();
+    private Runnable mRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isDragging){
+                seekBar.setProgress(myService.getCurrentPosition()/1000);
+                current.setText(Utils.intToTime(myService.getCurrentPosition()));
+            }
+            mHandler.postDelayed(mRunnable, 1000);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         initializeViews();
 
         Intent intent = new Intent(this, MusicService.class);
@@ -53,18 +71,18 @@ public class MainActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
         recyclerView.addItemDecoration(new DividerItemDecoration(recyclerView.getContext(), DividerItemDecoration.VERTICAL));
 
-        HanderButtonListener mButtonListener = new HanderButtonListener();
+        HandlerButtonListener mButtonListener = new HandlerButtonListener();
         play.setOnClickListener(mButtonListener);
         pre.setOnClickListener(mButtonListener);
         next.setOnClickListener(mButtonListener);
 
         mAdapter = new SongAdapter(getApplicationContext(), songs, (song, position) -> {
-            myService.setAndPlay(song);
+            playSong(position);
         });
 
         recyclerView.setAdapter(mAdapter);
 
-//        handleSeekbar();
+        handleSeekbar();
     }
 
     private class MyConnection implements ServiceConnection{
@@ -72,6 +90,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             myService = (IMusicBinder) service;
+            myService.setCallBack(new StateChangeCallBack());
         }
 
         @Override
@@ -126,46 +145,105 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-//    private void handleSeekbar(){
-//        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-//            @Override
-//            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-//                if (mediaPlayer!=null && fromUser){
-//                    current.setText(Utils.intToTime(progress*1000));
-//                }
-//            }
-//
-//            @Override
-//            public void onStartTrackingTouch(SeekBar seekBar) {
-//
-//            }
-//
-//            @Override
-//            public void onStopTrackingTouch(SeekBar seekBar) {
-//                if (mediaPlayer!=null){
-//                    mediaPlayer.seekTo(seekBar.getProgress()*1000);
-//                }
-//            }
-//        });
-//    }
+    private void handleSeekbar(){
+        isDragging = false;
 
-    private class HanderButtonListener implements View.OnClickListener{
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if (myService.hasSong() && fromUser){
+                    current.setText(Utils.intToTime(progress*1000));
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+                isDragging=true;
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                isDragging=false;
+                myService.seekTo(seekBar.getProgress()*1000);
+            }
+        });
+    }
+
+    private void playSong(int pos) {
+        mAdapter.setSelectedPosition(pos);
+        Song song = songs.get(pos);
+        myService.set(song);
+        title.setText(song.getTitle());
+        seekBar.setMax(song.getDuration()/1000);
+        seekBar.setProgress(0);
+        duration.setText(song.getDuratonString());
+        resume();
+    }
+
+    private void pause(){
+        myService.pause();
+        play.setBackgroundResource(R.drawable.play);
+        stopRefreshSeekBar();
+    }
+
+    private void resume(){
+        myService.play();
+        play.setBackgroundResource(R.drawable.pause);
+        startRefreshSeekBar();
+    }
+
+    private void startRefreshSeekBar(){
+        mRunnable.run();
+    }
+
+    private void stopRefreshSeekBar(){
+        mHandler.removeCallbacks(mRunnable);
+    }
+
+    private class HandlerButtonListener implements View.OnClickListener{
 
         @Override
         public void onClick(View v) {
+            int pos;
             switch (v.getId()){
                 case R.id.pre:
+                    pos = (mAdapter.getSelectedPosition()-1+mAdapter.getItemCount())%mAdapter.getItemCount();
+                    playSong(pos);
                     break;
                 case R.id.play:
+                    if (!myService.hasSong()) break;
                     if (myService.isPlaying()) {
-                        myService.pause();
+                        pause();
                     }else {
-                        myService.play();
+                        resume();
                     }
                     break;
                 case R.id.next:
+                    pos = (mAdapter.getSelectedPosition()+1) % mAdapter.getItemCount();
+                    playSong(pos);
                     break;
             }
         }
     }
+
+    private class StateChangeCallBack implements IStateChangeCallBack{
+
+        @Override
+        public void onCompletion() {
+            int pos = (mAdapter.getSelectedPosition()+1) % mAdapter.getItemCount();
+            playSong(pos);
+        }
+
+        @Override
+        public void onPause() {
+            pause();
+        }
+
+        @Override
+        public void onResume() {
+            resume();
+        }
+    }
+
+
 }
