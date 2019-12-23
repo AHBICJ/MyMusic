@@ -1,40 +1,35 @@
 package com.example.mymusic;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.content.ContentResolver;
+import android.content.ComponentName;
 import android.content.ContentUris;
-import android.content.res.AssetFileDescriptor;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.database.Cursor;
-import android.media.AudioManager;
-import android.media.MediaDataSource;
-import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.ParcelFileDescriptor;
+import android.os.IBinder;
 import android.provider.MediaStore;
+import android.view.View;
 import android.widget.ImageButton;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.mymusic.Adapter.SongAdapter;
 import com.example.mymusic.Model.Song;
-import com.example.mymusic.Utils.Utils;
+import com.example.mymusic.Service.IMusicBinder;
+import com.example.mymusic.Service.MusicService;
 
-import java.io.IOException;
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private SeekBar seekBar;
     private TextView current;
-    private TextView slash;
     private TextView duration;
     private TextView title;
     private ImageButton play;
@@ -42,8 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private ImageButton next;
     private SongAdapter mAdapter;
     private ArrayList<Song> songs;
-    private MediaPlayer mediaPlayer;
-
+    private IMusicBinder myService;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,43 +45,38 @@ public class MainActivity extends AppCompatActivity {
 
         initializeViews();
 
+        Intent intent = new Intent(this, MusicService.class);
+        MyConnection myConnection = new MyConnection();
+        bindService(intent,myConnection,BIND_AUTO_CREATE);
+
         getSongList();
         recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
         recyclerView.addItemDecoration(new DividerItemDecoration(recyclerView.getContext(), DividerItemDecoration.VERTICAL));
+
+        HanderButtonListener mButtonListener = new HanderButtonListener();
+        play.setOnClickListener(mButtonListener);
+        pre.setOnClickListener(mButtonListener);
+        next.setOnClickListener(mButtonListener);
+
         mAdapter = new SongAdapter(getApplicationContext(), songs, (song, position) -> {
-            changeSong(song,position);
+            myService.setAndPlay(song);
         });
+
         recyclerView.setAdapter(mAdapter);
 
-        mediaPlayer = new MediaPlayer();
-        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-        mediaPlayer.setOnPreparedListener(mp -> {
-            togglePlay(mp);
-        });
-        mediaPlayer.setOnCompletionListener(mp -> {
-            int pos = mAdapter.getSelectedPosition()+1 % mAdapter.getItemCount();
-            changeSong(songs.get(pos),pos);
-        });
-
-        handleSeekbar();
+//        handleSeekbar();
     }
 
-    private void togglePlay(MediaPlayer mp) {
-        if (mp.isPlaying()){
-            mp.stop();
-            mp.reset();
-        }else{
-            mp.start();
-            play.setBackgroundResource(R.drawable.pause);
-            final Handler mHandler = new Handler();
-            this.runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    seekBar.setProgress(mediaPlayer.getCurrentPosition() / 1000);
-                    current.setText(Utils.intToTime(mediaPlayer.getCurrentPosition()));
-                    mHandler.postDelayed(this,1000);
-                }
-            });
+    private class MyConnection implements ServiceConnection{
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            myService = (IMusicBinder) service;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
         }
     }
 
@@ -95,7 +84,6 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = (RecyclerView) findViewById(R.id.recyclerView);
         seekBar = (SeekBar) findViewById(R.id.seekBar);
         current = (TextView) findViewById(R.id.current);
-        slash = (TextView) findViewById(R.id.slash);
         duration = (TextView) findViewById(R.id.duration);
         title = (TextView) findViewById(R.id.title);
         play = (ImageButton) findViewById(R.id.play);
@@ -128,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
                 String title = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE));
                 String artist = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST));
                 String album = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM));
-                String data = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA));
                 long albumId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID));
                 Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
                 Uri albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId);
@@ -139,51 +126,46 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void handleSeekbar(){
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (mediaPlayer!=null && fromUser){
-                    current.setText(Utils.intToTime(progress*1000));
-                }
+//    private void handleSeekbar(){
+//        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+//            @Override
+//            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+//                if (mediaPlayer!=null && fromUser){
+//                    current.setText(Utils.intToTime(progress*1000));
+//                }
+//            }
+//
+//            @Override
+//            public void onStartTrackingTouch(SeekBar seekBar) {
+//
+//            }
+//
+//            @Override
+//            public void onStopTrackingTouch(SeekBar seekBar) {
+//                if (mediaPlayer!=null){
+//                    mediaPlayer.seekTo(seekBar.getProgress()*1000);
+//                }
+//            }
+//        });
+//    }
+
+    private class HanderButtonListener implements View.OnClickListener{
+
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()){
+                case R.id.pre:
+                    break;
+                case R.id.play:
+                    if (myService.isPlaying()) {
+                        myService.pause();
+                    }else {
+                        myService.play();
+                    }
+                    break;
+                case R.id.next:
+                    break;
             }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                if (mediaPlayer!=null){
-                    mediaPlayer.seekTo(seekBar.getProgress()*1000);
-                }
-            }
-        });
-    }
-
-    private void changeSong(Song song,int position){
-        if (position == mAdapter.getSelectedPosition() && mediaPlayer.isPlaying()) return;
-        mAdapter.setSelectedPosition(position);
-        ContentResolver resolver = getApplicationContext().getContentResolver();
-        String readOnlyMode = "r";
-        try(AssetFileDescriptor parcelFd = resolver.openAssetFileDescriptor(song.getStreamUri(), readOnlyMode)){
-            duration.setText(song.getDuratonString());
-            title.setText(song.getTitle());
-            seekBar.setMax(song.getDuration()/1000);
-            playSong(parcelFd);
-        }catch (IOException e){
-            e.printStackTrace();
         }
-    }
-
-    private void playSong(AssetFileDescriptor parcelFd) {
-        mediaPlayer.reset();
-        try{
-            mediaPlayer.setDataSource(parcelFd);
-            mediaPlayer.prepareAsync();
-        }catch (IOException e){
-            e.printStackTrace();
-        };
     }
 }
