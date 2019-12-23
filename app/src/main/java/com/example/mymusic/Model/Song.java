@@ -2,6 +2,8 @@ package com.example.mymusic.Model;
 
 import android.net.Uri;
 
+import com.example.mymusic.Utils.Utils;
+
 public class Song {
     private int id;
     private String title;
@@ -9,9 +11,9 @@ public class Song {
     private String album;
     private Uri coverUri;
     private int duration;
-    private String streamUri;
+    private Uri streamUri;
 
-    public Song(int id, String title, String artist, String album, Uri coverUri, int duration, String streamUri) {
+    public Song(int id, String title, String artist, String album, Uri coverUri, int duration, Uri streamUri) {
         this.id = id;
         this.title = title;
         this.artist = artist;
@@ -61,31 +63,23 @@ public class Song {
         this.coverUri = coverUri;
     }
 
-    public long getDuration() {
+    public int getDuration() {
         return duration;
     }
     public String getDuratonString(){
-        return toTime(duration);
+        return Utils.intToTime(duration);
     }
 
     public void setDuration(int duration) {
         this.duration = duration;
     }
 
-    public String getStreamUri() {
+    public Uri getStreamUri() {
         return streamUri;
     }
 
-    public void setStreamUri(String streamUri) {
+    public void setStreamUri(Uri streamUri) {
         this.streamUri = streamUri;
     }
-    private static String toTime(int time){
-        int seconds = time/1000;
-        int minutes = seconds/60;
-        int hours = minutes /60;
-        minutes %=60;
-        seconds %= 60;
-        if (hours!=0) return String.format("%02d:%02d:%02d",hours,minutes,seconds);
-        else return String.format("%02d:%02d",minutes,seconds);
-    }
+
 }

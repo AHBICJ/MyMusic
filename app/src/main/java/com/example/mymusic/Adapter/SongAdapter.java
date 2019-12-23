@@ -59,13 +59,6 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
     public void onBindViewHolder(@NonNull SongViewHolder holder, int position) {
         Song song = mSongList.get(position);
         if (song!=null){
-
-//            if (selectedPosition == position){
-//                holder.itemView.setBackgroundColor(ContextCompat.getColor(mContext,R.color.colorBG));
-//            }else{
-//                holder.itemView.setBackgroundColor(ContextCompat.getColor(mContext,android.R.color.transparent));
-//            }
-
             holder.title.setText(song.getTitle());
             holder.artist.setText(song.getArtist()+" - "+song.getAlbum());
             holder.duration.setText(song.getDuratonString());
