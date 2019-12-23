@@ -32,7 +32,7 @@ public class MusicService extends Service {
     private boolean mPlaybackDelayed = false;
     private boolean mResumeOnFocusGain = false;
     private Handler handler;
-    private IStateChangeCallBack mcallBack;
+    private IStateChangeCallBack mCallBack;
 
     @Override
     public void onCreate() {
@@ -60,7 +60,7 @@ public class MusicService extends Service {
         };
         
         mMediaPlayer.setOnCompletionListener(mp -> {
-            mcallBack.onCompletion();
+            mCallBack.onCompletion();
         });
     }
 
@@ -129,7 +129,7 @@ public class MusicService extends Service {
 
         @Override
         public void setCallBack(IStateChangeCallBack callBack) {
-            mcallBack = callBack;
+            mCallBack = callBack;
         }
 
         @Override
@@ -156,7 +156,7 @@ public class MusicService extends Service {
                             mResumeOnFocusGain = false;
                         }
                         mMediaPlayer.start();
-                        mcallBack.onResume();
+                        mCallBack.onResume();
                     }
                     break;
                 case AudioManager.AUDIOFOCUS_LOSS:
@@ -165,7 +165,7 @@ public class MusicService extends Service {
                         mPlaybackDelayed = false;
                     }
                     mMediaPlayer.pause();
-                    mcallBack.onPause();
+                    mCallBack.onPause();
                     break;
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
@@ -174,7 +174,7 @@ public class MusicService extends Service {
                         mPlaybackDelayed = false;
                     }
                     mMediaPlayer.pause();
-                    mcallBack.onPause();
+                    mCallBack.onPause();
                     break;
             }
         }
