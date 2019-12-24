@@ -29,7 +29,7 @@ public class MusicService extends Service {
     private MusicPlayerBinder mBinder;
     private AssetFileDescriptor mAssetFileDescriptor;
     final Object mFocusLock = new Object();
-    private boolean mPlaybackDelayed = false;
+    private boolean mUserPaused = false;
     private boolean mResumeOnFocusGain = false;
     private Handler handler;
     private IStateChangeCallBack mCallBack;
@@ -69,6 +69,7 @@ public class MusicService extends Service {
         @Override
         public void play() {
             if (mAssetFileDescriptor!=null && !mMediaPlayer.isPlaying()) {
+                mUserPaused = false;
                 mAudioManager.requestAudioFocus(mFocusRequest);
                 mMediaPlayer.start();
                 IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
@@ -80,6 +81,7 @@ public class MusicService extends Service {
         public void pause() {
             if (mMediaPlayer.isPlaying()) {
                 mMediaPlayer.pause();
+                mUserPaused = true;
             }
         }
 
@@ -150,9 +152,8 @@ public class MusicService extends Service {
         public void onAudioFocusChange(int focusChange) {
             switch (focusChange) {
                 case AudioManager.AUDIOFOCUS_GAIN:
-                    if (mPlaybackDelayed || mResumeOnFocusGain) {
+                    if (!mUserPaused && mResumeOnFocusGain) {
                         synchronized (mFocusLock) {
-                            mPlaybackDelayed = false;
                             mResumeOnFocusGain = false;
                         }
                         mMediaPlayer.start();
@@ -162,7 +163,7 @@ public class MusicService extends Service {
                 case AudioManager.AUDIOFOCUS_LOSS:
                     synchronized (mFocusLock) {
                         mResumeOnFocusGain = false;
-                        mPlaybackDelayed = false;
+                        mUserPaused = true;
                     }
                     mMediaPlayer.pause();
                     mCallBack.onPause();
@@ -171,7 +172,6 @@ public class MusicService extends Service {
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
                     synchronized (mFocusLock) {
                         mResumeOnFocusGain = true;
-                        mPlaybackDelayed = false;
                     }
                     mMediaPlayer.pause();
                     mCallBack.onPause();
