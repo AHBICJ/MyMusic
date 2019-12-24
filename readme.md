@@ -13,7 +13,7 @@
 这个是好东西，LinearLayout也就用过两次，之后全部都是用的约束布局，虽然调整起来有些麻烦，但这是新东西要重视。
 
 <div align="center">
-    <img src="./show/0.png" width = "370" title="music"/>
+    <img src="./show/0.png" width = "100%" title="music"/>
 </div>
 
 ## RecyclerView
@@ -24,7 +24,7 @@
 
 音频焦点，就是别人想要放歌的时候会通知你，你自己就别放了，不会同时有两个声音。
 
-写这个东西是因为，看到了[Best practices in media playback - Google I/O 2016](https://www.youtube.com/watch?v=iIKxyDRjecU)，真就2016PPT里将的代码在2017安卓N出来的时候弃用了呗。
+写这个东西是因为，看到了[Best practices in media playback - Google I/O 2016](https://www.youtube.com/watch?v=iIKxyDRjecU)，真就2016PPT里讲的代码在2017安卓N出来的时候弃用了呗。
 
 其中还有ACTION_AUDIO_BECOMING_NOISY，举个例子就是拔掉耳机暂停的处理。
 
@@ -52,5 +52,5 @@ try (AssetFileDescriptor assetFileDescriptor = resolver.openAssetFileDescriptor(
 }
 ```
 
-- 12/24日的时候用了回调实现的进程间通信，因为也不会message
+- 12/24日的时候用了回调实现了activity和service之间的通信(他们俩默认竟然在同一个线程里面)，因为也不会message
 - 单元测试咋整？
