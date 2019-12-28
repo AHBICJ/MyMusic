@@ -24,6 +24,10 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
     private RecyclerItemClickListener mListener;
     private int selectedPosition=-1;
 
+    public interface RecyclerItemClickListener{
+        void onClickListener(Song song,int position);
+    }
+
     public SongAdapter(Context context, ArrayList<Song> songList, RecyclerItemClickListener listener) {
         mContext = context;
         mSongList = songList;
@@ -51,12 +55,14 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
     @NonNull
     @Override
     public SongViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        // inflate视图，返回一个由传递这个View而实例化的ViewHolder
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.song,parent,false);
         return new SongViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull SongViewHolder holder, int position) {
+        // 绑定数据
         Song song = mSongList.get(position);
         if (song!=null){
             holder.title.setText(song.getTitle());
@@ -69,11 +75,8 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
 
     @Override
     public int getItemCount() {
+        // list的个数
         return mSongList.size();
-    }
-
-    public interface RecyclerItemClickListener{
-        void onClickListener(Song song,int position);
     }
 
     public void setSelectedPosition(int selectedPosition) {

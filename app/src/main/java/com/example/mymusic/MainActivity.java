@@ -46,6 +46,9 @@ public class MainActivity extends AppCompatActivity {
     private IMusicBinder myService;
     private boolean isDragging;
     private final Handler mHandler = new Handler();
+    MyConnection myConnection;
+    boolean mBound = false;
+
     private Runnable mRunnable = new Runnable() {
         @Override
         public void run() {
@@ -64,26 +67,38 @@ public class MainActivity extends AppCompatActivity {
         initializeViews();
 
         Intent intent = new Intent(this, MusicService.class);
-        MyConnection myConnection = new MyConnection();
+        myConnection = new MyConnection();
         bindService(intent,myConnection,BIND_AUTO_CREATE);
+        mBound = true;
 
+        // 获得歌曲列表
         getSongList();
+        // 设置线性布局
         recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext()));
+        // 设置分割线
         recyclerView.addItemDecoration(new DividerItemDecoration(recyclerView.getContext(), DividerItemDecoration.VERTICAL));
+        // 传入一个回调函数实例化一个适配器
+        mAdapter = new SongAdapter(getApplicationContext(), songs, (song, position) -> {
+            playSong(position);
+        });
+        // 设置适配器
+        recyclerView.setAdapter(mAdapter);
 
         HandlerButtonListener mButtonListener = new HandlerButtonListener();
         play.setOnClickListener(mButtonListener);
         pre.setOnClickListener(mButtonListener);
         next.setOnClickListener(mButtonListener);
 
-        mAdapter = new SongAdapter(getApplicationContext(), songs, (song, position) -> {
-            playSong(position);
-        });
-
-        recyclerView.setAdapter(mAdapter);
-
         handleSeekbar();
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unbindService(myConnection);
+        mBound = false;
+    }
+
 
     private class MyConnection implements ServiceConnection{
 
@@ -112,9 +127,9 @@ public class MainActivity extends AppCompatActivity {
 
     private void getSongList() {
         songs = new ArrayList<>();
-
+        // 得到音频媒体的URI
         final Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
-
+        // 定义需要选择的字段
         final String[] cursor_cols = {
                 MediaStore.Audio.Media._ID,
                 MediaStore.Audio.Media.TITLE,
@@ -122,11 +137,12 @@ public class MainActivity extends AppCompatActivity {
                 MediaStore.Audio.Media.ALBUM,
                 MediaStore.Audio.Media.ALBUM_ID,
                 MediaStore.Audio.Media.DURATION};
-
+        // 定义筛选，首先可以通过系统的字段 IS_MUSIC过滤掉一部分非音乐
         final String where = MediaStore.Audio.Media.IS_MUSIC + "=1";
+        // 获得通过ContentResolver 查询对应的内容提供器
         final Cursor cursor = getApplicationContext().getContentResolver().query(uri,
                 cursor_cols, where, null, null);
-
+        // 对获得的游标 进行处理，生成歌曲对象放入歌曲列表
         if (cursor != null && cursor.moveToFirst()) {
             do {
                 int duration = cursor.getInt(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION));
@@ -137,7 +153,9 @@ public class MainActivity extends AppCompatActivity {
                 String album = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM));
                 long albumId = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID));
                 Uri sArtworkUri = Uri.parse("content://media/external/audio/albumart");
+                // 获得专辑封面对应的 URI
                 Uri albumArtUri = ContentUris.withAppendedId(sArtworkUri, albumId);
+                // 获得歌曲对应的 URI
                 Uri streamUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,id);
                 songs.add(new Song(id, title, artist, album, albumArtUri, duration, streamUri));
             } while (cursor.moveToNext());

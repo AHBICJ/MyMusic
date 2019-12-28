@@ -70,6 +70,7 @@ public class MusicService extends Service {
         public void play() {
             if (mAssetFileDescriptor!=null && !mMediaPlayer.isPlaying()) {
                 mUserPaused = false;
+                // 请求音频焦点
                 mAudioManager.requestAudioFocus(mFocusRequest);
                 mMediaPlayer.start();
                 IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
